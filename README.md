@@ -74,14 +74,16 @@ INTRODUCTION
 
 This library provides a Queue Worker total solution for Codeigniter 3 framework with Multi-Processes implementation, it includes Listener and Worker for processing new jobs from queue. You may integrate your application queue (such as Redis) with Queue Worker Controller.
 
-PHP is a lack of support for multithreading at the core language level, this library implements multithreading by manage multiprocessing.
+PHP is a lack of support for multithreading at the core language level, this library implements multithreading by managing multiprocessing.
 
 For more concepts, the following diagram shows the implementation structure of this library:
 
 <img src="https://raw.githubusercontent.com/yidas/codeigniter-queue-worker/master/img/introduction-structure.png" />
 
 Listener could continue to run for detecting new jobs until it is manually stopped or you close your terminal. On the other hand
-, Worker could continue to run for processing new jobs until there is no job left.
+, Worker could continue to run for processing new jobs until there is no job left, which the workers could be called by Listener.
+
+Launcher is suitable for launching a listener process, which the running Listener process could be unique that the second launch would detect existent listener and do NOT launch again.
 
 ---
 
