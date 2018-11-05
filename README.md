@@ -152,14 +152,13 @@ class My_worker extends \yidas\queue\worker\Controller
 {
     protected function init()
     {
-        // Optional autoload 
+        // Optional autoload (Load your own libraries or models)
         $this->load->library('myjobs');
-
-        // Optional shared properties setting
-        $this->static = 'static value';
     }
 // ...
 ```
+
+> As above, `myjobs` library is defined by your own application which handles your job processes.
 
 #### 2. Build Worker
 
@@ -175,15 +174,17 @@ class My_worker extends \yidas\queue\worker\Controller
 {
     protected function handleWork()
     {
+        // Your own method to get a job from your queue in the application
         $job = $this->myjobs->popJob();
         
-        // `false` for job not found, which would close the worker itself.
+        // return `false` for job not found, which would close the worker itself.
         if (!$job)
             return false;
         
+        // Your own method to process a job
         $this->myjobs->processJob($job);
         
-        // `true` for job existing, which would keep handling.
+        // return `true` for job existing, which would keep handling.
         return true;
     }
 // ...
@@ -203,8 +204,9 @@ class My_worker extends \yidas\queue\worker\Controller
 {
     protected function handleListen()
     {
-        // `true` for job existing, which leads to dispatch worker(s).
-        // `false` for job not found, which would keep detecting new job
+        // Your own method to detect job existence
+        // return `true` for job existing, which leads to dispatch worker(s).
+        // return `false` for job not found, which would keep detecting new job
         return $this->myjobs->exists();
     }
 // ...
