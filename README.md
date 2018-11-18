@@ -14,6 +14,8 @@ CodeIgniter 3 Queue Worker Management Controller
 
 This Queue Worker extension is collected into [yidas/codeigniter-pack](https://github.com/yidas/codeigniter-pack) which is a complete solution for Codeigniter framework.
 
+> This library only provides worker controller, you need to design your own queue handler/process into it.  
+
 Features
 --------
 
@@ -116,7 +118,7 @@ $config['composer_autoload'] = TRUE;
 CONFIGURATION
 -------------
 
-You need to design handlers for your own worker inherited from this library, there are common interfaces as following:
+You need to design your own queue handlers into worker controller by inheriting it, there are common interfaces as following:
 
 ```php
 use yidas\queue\worker\Controller as WorkerController;
