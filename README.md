@@ -14,7 +14,7 @@ CodeIgniter 3 Queue Worker Management Controller
 
 This Queue Worker extension is collected into [yidas/codeigniter-pack](https://github.com/yidas/codeigniter-pack) which is a complete solution for Codeigniter framework.
 
-> This library only provides worker controller, you need to design your own queue handler/process into it.  
+> This library only provides worker controller, you need to implement your own queue driver with handler/process in it.  
 
 Features
 --------
@@ -118,7 +118,7 @@ $config['composer_autoload'] = TRUE;
 CONFIGURATION
 -------------
 
-You need to design your own queue handlers into worker controller by inheriting it, there are common interfaces as following:
+First, create a controller that extends the working controller, and then use your own queue driver to design your own handler to implement the worker controller. There are common interfaces as following:
 
 ```php
 use yidas\queue\worker\Controller as WorkerController;
@@ -136,7 +136,7 @@ class My_worker extends WorkerController
 }
 ```
 
-These handlers are supposed to be designed for detecting the same job queue, but for different purpose. For example, Listener and Worker detect the same Redis list queue, Listener only do dispatching jobs by forking Worker, while Worker continue to takes out jobs and do the processing until job queue is empty.
+These handlers are supposed to be designed for detecting the same job queue, but for different purpose. For example, if you are using Redis as message queue, Listener and Worker detect the same Redis list queue, Listener only do dispatching jobs by forking Worker, while Worker continue to takes out jobs and do the processing until job queue is empty.
 
 ### How to Design a Worker
 
