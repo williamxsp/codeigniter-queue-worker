@@ -6,7 +6,7 @@
     <br>
 </p>
 
-CodeIgniter 3 Queue Worker Management Controller
+CodeIgniter 3 Daemon Queue Worker Management Controller
 
 [![Latest Stable Version](https://poser.pugx.org/yidas/codeigniter-queue-worker/v/stable?format=flat-square)](https://packagist.org/packages/yidas/codeigniter-queue-worker)
 [![License](https://poser.pugx.org/yidas/codeigniter-queue-worker/license?format=flat-square)](https://packagist.org/packages/yidas/codeigniter-queue-worker)
@@ -20,7 +20,7 @@ Features
 
 - ***Multi-Processing** implementation on native PHP-CLI*
 
-- ***Dynamically Workers dispatching** management*
+- ***Dynamically Workers dispatching (Daemon)** management*
 
 - ***Running in background permanently** without extra libraries* 
 
@@ -55,7 +55,7 @@ OUTLINE
 DEMONSTRATION
 -------------
 
-Running a listener with 2~5 workers setting added per 3 seconds:
+Running a listener (Daemon) with 2~5 workers setting added per 3 seconds:
 
 ```
 $ php index.php job_controller/listen
@@ -73,7 +73,7 @@ $ php index.php job_controller/listen
 INTRODUCTION
 ------------
 
-This library provides a Queue Worker total solution for Codeigniter 3 framework with Multi-Processes implementation, it includes Listener and Worker for processing new jobs from queue. You may integrate your application queue (such as Redis) with Queue Worker Controller.
+This library provides a Daemon Queue Worker total solution for Codeigniter 3 framework with Multi-Processes implementation, it includes Listener (Daemon) and Worker for processing new jobs from queue. You may integrate your application queue (such as Redis) with Queue Worker Controller.
 
 PHP is a lack of support for multithreading at the core language level, this library implements multithreading by managing multiprocessing.
 
@@ -81,7 +81,7 @@ For more concepts, the following diagram shows the implementation structure of t
 
 <img src="https://raw.githubusercontent.com/yidas/codeigniter-queue-worker/master/img/introduction-structure.png" />
 
-Listener could continue to run for detecting new jobs until it is manually stopped or you close your terminal. On the other hand
+Listener (Daemon) could continue to run for detecting new jobs until it is manually stopped or you close your terminal. On the other hand
 , Worker could continue to run for processing new jobs until there is no job left, which the workers could be called by Listener.
 
 Launcher is suitable for launching a listener process, which the running Listener process could be unique that the second launch would detect existent listener and do NOT launch again.
@@ -252,7 +252,7 @@ USAGE
 
 There are 3 actions for usage:
 
-- `listen` A listener to manage and dispatch jobs by forking workers.
+- `listen` A listener (Daemon) to manage and dispatch jobs by forking workers.
 - `work` A worker to process and solve jobs from queue.
 - `launch` A launcher to run `listen` or `work` process in background and keep it running uniquely.
 
