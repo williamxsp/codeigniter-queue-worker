@@ -1,16 +1,16 @@
 <?php
 
-namespace yidas\queue\worker;
+namespace williamxsp\queue;
 
 use Exception;
 use CI_Controller;
+use Symfony\Component\Process\Process;
 
 /**
  * Worker Manage Controller
- * 
+ *
  * @author  Nick Tsai <myintaer@gmail.com>
  * @version 1.0.0
- * @todo    Implement by using pcntl
  */
 class Controller extends CI_Controller
 {
@@ -44,7 +44,7 @@ class Controller extends CI_Controller
 
     /**
      * Time interval of worker processes frequency
-     * 
+     *
      * The time between a job handle done and the next job catch
      *
      * @var integer Seconds
@@ -131,9 +131,9 @@ class Controller extends CI_Controller
      *
      * @var array Worker ID => OS PID
      */
-    protected $_pidStack = [];
+    protected $processStack = [];
     
-    function __construct() 
+    public function __construct()
     {
         // CLI only
         if (php_sapi_name() != "cli") {
@@ -144,7 +144,7 @@ class Controller extends CI_Controller
 
         // Init constructor hook
         if (method_exists($this, 'init')) {
-            // You may need to set config to prevent any continuous growth usage 
+            // You may need to set config to prevent any continuous growth usage
             // such as `$this->db->save_queries = false;`
             return $this->init();
         }
@@ -163,10 +163,12 @@ class Controller extends CI_Controller
         }
         
         // Pre-work check
-        if (!method_exists($this, 'handleListen'))
+        if (!method_exists($this, 'handleListen')) {
             throw new Exception("You need to declare `handleListen()` method in your worker controller.", 500);
-        if (!method_exists($this, 'handleWork'))
+        }
+        if (!method_exists($this, 'handleWork')) {
             throw new Exception("You need to declare `handleWork()` method in your worker controller.", 500);
+        }
         if ($this->logPath && !file_exists($this->logPath)) {
             // Try to access or create log file
             if ($this->_log('')) {
@@ -184,8 +186,9 @@ class Controller extends CI_Controller
         // Worker command builder
         // Be careful to avoid infinite loop by opening listener itself
         $workerAction = 'work';
+        $path = preg_replace("/\s/", "\\ ", FCPATH).'index.php';
         $route = $this->router->fetch_directory() . $this->router->fetch_class() . "/{$workerAction}";
-        $workerCmd = "{$this->phpCommand} " . FCPATH . "index.php {$route}";
+        $workerCmd = "{$this->phpCommand} {$path} {$route}";
 
         // Static variables
         $startTime = 0;
@@ -203,10 +206,10 @@ class Controller extends CI_Controller
             sleep(0.1);
             
             // Call customized listener process, assigns works while catching true by callback return
-        	$hasEvent = ($this->handleListen($this->_staticListen)) ? true : false;
+            $hasEvent = ($this->handleListen($this->_staticListen)) ? true : false;
 
             // Start works if exists
-            if ($hasEvent) {  
+            if ($hasEvent) {
 
                 // First time to assign works
                 if (!$workingFlag) {
@@ -217,7 +220,7 @@ class Controller extends CI_Controller
 
                     if ($this->workerStartNum > 1) {
                         // Execute extra worker numbers
-                        for ($i=1; $i < $this->workerStartNum ; $i++) { 
+                        for ($i=1; $i < $this->workerStartNum ; $i++) {
                             $workerCount ++;
                             $r = $this->_workerCmd($workerCmd, $workerCount);
                         }
@@ -229,10 +232,9 @@ class Controller extends CI_Controller
 
                     // Worker heath check
                     if ($this->workerHeathCheck) {
-                        foreach ($this->_pidStack as $id => $pid) {
-                            $isAlive = $this->_isPidAlive($pid);
-                            if (!$isAlive) {
-                                $this->_log("Queue Listener - Worker health check: Missing #{$id} (PID: {$pid})");
+                        foreach ($this->processStack as $id => $process) {
+                            if (!$process->isRunning()) {
+                                $this->_log("Queue Listener - Worker health check: Missing #{$id})");
                                 $r = $this->_workerCmd($workerCmd, $id);
                             }
                         }
@@ -256,7 +258,7 @@ class Controller extends CI_Controller
                 $workingFlag = false;
                 $workerCount = 0;
                 // Clear worker stack
-                $this->_pidStack = [];
+                $this->processStack = [];
                 $costSeconds = number_format(microtime(true) - $startTime, 2, '.', '');
                 $this->_log("Queue Listener - Job empty");
                 $this->_log("Queue Listener - Stop dispatch, total cost: {$costSeconds}s");
@@ -270,7 +272,7 @@ class Controller extends CI_Controller
     }
     
     /**
-     * Action for creating a worker 
+     * Action for creating a worker
      *
      * @param integer $id
      * @return void
@@ -278,8 +280,9 @@ class Controller extends CI_Controller
     public function work($id=1)
     {
         // Pre-work check
-        if (!method_exists($this, 'handleWork'))
+        if (!method_exists($this, 'handleWork')) {
             throw new Exception("You need to declare `handleWork()` method in your worker controller.", 500);
+        }
         
         // INI setting
         if ($this->debug) {
@@ -313,9 +316,9 @@ class Controller extends CI_Controller
 
     /**
      * Launcher for guaranteeing unique process
-     * 
+     *
      * This launcher would launch specified process if there are no any other same process running
-     * by launcher. Using this for launching `listen` could ensure there are always one listener 
+     * by launcher. Using this for launching `listen` could ensure there are always one listener
      * running at the same time with repeated launch calling likes crontab, which could also ensure
      * listener process would never gone away.
      *
@@ -339,8 +342,8 @@ class Controller extends CI_Controller
         
         // Action command builder
         $route = $this->router->fetch_directory() . $this->router->fetch_class() . "/{$action}";
-        $cmd = "{$this->phpCommand} " . FCPATH . "index.php {$route}";
-
+        $path = preg_replace("/\s/", "\\ ", FCPATH).'index.php';
+        $cmd = "{$this->phpCommand} {$path} {$route}";
         // Check process exists
         $search = str_replace('/', '\/', $route);
         // $result = shell_exec("pgrep -f \"{$search}\""); // Lacks of display info
@@ -350,13 +353,13 @@ class Controller extends CI_Controller
         $exist = (shell_exec($psCmd)) ? true : false;
 
         if ($exist) {
-            
             $psInfo = shell_exec($psInfoCmd);
             die("Skip: Same process `{$action}` is running: {$route}.\n------\n{$psInfo}");
         }
 
         // Launch by calling command
         $launchCmd = "{$cmd} > {$logPath} &";
+        
         $result = shell_exec($launchCmd);
         $result = shell_exec($psCmd);
         $psInfo = shell_exec($psInfoCmd);
@@ -367,9 +370,9 @@ class Controller extends CI_Controller
 
     /**
      * Action for activating a single listened worker
-     * 
-     * Single process ensures unique process running, which prevents the same  
-     * 
+     *
+     * Single process ensures unique process running, which prevents the same
+     *
      * The reason which this doesn't use process check method such as `ps`, `pgrep`, is that the
      * process ID or name are unrecognizable as unique for ensuring only one Single process is
      * running.
@@ -379,19 +382,19 @@ class Controller extends CI_Controller
     public function single($force=false)
     {
         // Pre-work check
-        if (!method_exists($this, 'handleSingle'))
+        if (!method_exists($this, 'handleSingle')) {
             throw new Exception("You need to declare `handleSingle()` method in your worker controller.", 500);
+        }
 
         // Shared lock flag builder
-        $lockFile = sys_get_temp_dir() 
-            . "/yidas-codeiginiter-queue-worker_" 
-            . str_replace('/', '_', $this->router->fetch_directory()) 
+        $lockFile = sys_get_temp_dir()
+            . "/yidas-codeiginiter-queue-worker_"
+            . str_replace('/', '_', $this->router->fetch_directory())
             . get_called_class()
             . '.lock';
 
         // Single check for process uniqueness
         if (!$force && file_exists($lockFile)) {
-
             $lockData = json_decode(file_get_contents($lockFile), true);
             // Check expires time
             if (isset($lockData['expires_at']) && time() <= $lockData['expires_at']) {
@@ -401,7 +404,7 @@ class Controller extends CI_Controller
 
         // Start Single - Set identified lock
         // Close Single - Release identified lock
-        register_shutdown_function(function() use ($lockFile) {
+        register_shutdown_function(function () use ($lockFile) {
             @unlink($lockFile);
         });
 
@@ -423,7 +426,7 @@ class Controller extends CI_Controller
 
     /**
      * Set static listener object for callback function
-     * 
+     *
      * This is a optional method with object injection instead of assigning and
      * accessing properties.
      *
@@ -439,7 +442,7 @@ class Controller extends CI_Controller
 
     /**
      * Set static worker object for callback function
-     *  
+     *
      * This is a optional method with object injection instead of assigning and
      * accessing properties.
      *
@@ -455,7 +458,7 @@ class Controller extends CI_Controller
 
     /**
      * Set static single object for callback function
-     *  
+     *
      * This is a optional method with object injection instead of assigning and
      * accessing properties.
      *
@@ -471,7 +474,7 @@ class Controller extends CI_Controller
 
     /**
      * Single process creates or extends lock file
-     * 
+     *
      * Extended second bases on sleep time and lock expiration
      *
      * @param string $lockFile
@@ -499,20 +502,17 @@ class Controller extends CI_Controller
         // Shell command builder
         $cmd = "{$workerCmd}/{$workerCount}";
         $cmd = ($this->logPath) ? "{$cmd} >> {$this->logPath}" : $cmd;
-
-        // Process handler
-        $process = proc_open("{$cmd} &", self::$_procDescriptorspec, $pipe);
-        // Find out worker command's PID
-        $status = proc_get_status($process);
-        $pid = $status['pid'] + 1;
+        
+        $process = new Process($cmd);
+        $process->start();
+        // $pid = $process->getPid() + 1;
+        
         // Stack workers
-        $this->_pidStack[$workerCount] = $pid;
-        // Close
-        proc_close($process);
-
+        $this->processStack[$workerCount] = $process;
+    
         // Log
         $time = date("Y-m-d H:i:s");
-        $this->_log("Queue Listener - Dispatch Worker #{$workerCount} (PID: {$pid})");
+        $this->_log("Queue Listener - Dispatch Worker #{$workerCount} (PID: {$process->getPid()})");
 
         return true;
     }
@@ -531,10 +531,11 @@ class Controller extends CI_Controller
         
         $logPath = ($logPath) ? $logPath : $this->logPath;
 
-        if ($logPath)
+        if ($logPath) {
             return file_put_contents($logPath, $this->_formatTextLine($textLine), FILE_APPEND);
-        else
+        } else {
             return false;
+        }
     }
 
     /**
@@ -559,19 +560,9 @@ class Controller extends CI_Controller
         return $textLine = date("Y-m-d H:i:s") . " - {$textLine}" . PHP_EOL;
     }
 
-    /**
-     * Check if PID is alive or not
-     *
-     * @param integer Process ID
-     * @return boolean
-     */
-    protected function _isPidAlive($pid)
-    {
-        return ((function_exists('posix_getpgid') && posix_getpgid($pid)) || file_exists("/proc/{$pid}")) ? true : false;
-    }
 
     /**
-     * Check if OS is Linux 
+     * Check if OS is Linux
      *
      * @return boolean
      */
@@ -591,7 +582,7 @@ class Controller extends CI_Controller
     protected function handleListen($static)
     {
         // Override this method
-        
+
         return false;
     }
     */
@@ -606,7 +597,7 @@ class Controller extends CI_Controller
     protected function handleWork($static)
     {
         // Override this method
-        
+
         return false;
     }
     */
@@ -621,7 +612,7 @@ class Controller extends CI_Controller
     protected function handleSingle($static)
     {
         // Override this method
-        
+
         return false;
     }
     */
